@@ -301,16 +301,12 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
 
   points_lat = new (50000, typeof(xlat))
   points_lon = new (50000, typeof(xlon))
- 
+
   do j = 0, (ny-1)
     do i = 0, (nx-1)
-      flat = (xlat(j,i)-latmin) / dlat
-      jj = round (flat,3)
       flag = 0
-      if (jj.ge.0 .and. jj.le.(nlat-1)) then
-        flon = (xlon(j,i)-lonmin) / dlon
-        ii = round (flon,3)
-        if (ii.ge.0 .and. ii.le.(nlon-1)) then
+      if ((xlat(j,i).ge.latmin) .and. (xlat(j,i).le.latmax)) then
+        if ((xlon(j,i).ge.lonmin) .and. (xlon(j,i).le.lonmax)) then
           flag = 1
           numpoints = numpoints + 1
           points_lat(numpoints-1) = (/ xlat(j,i) /)
@@ -350,13 +346,13 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
             bin_center = pr_pdf@bin_center
             bin_bounds = pr_pdf@bin_bounds
           end if
-        end if
-        if (flag .eq. 1) then
-          delete (pr_pdf)       ;     for good measure
-        end if
-      end if
-    end do
-  end do
+          if (flag .eq. 1) then
+            delete (pr_pdf)       ;     for good measure
+          end if
+        end if       ; end if for lon
+      end if         ; end if for lat
+    end do           ; end lon loop
+  end do             ; end lat loop
 
   end if
 
