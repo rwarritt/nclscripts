@@ -192,8 +192,8 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
   xlon = mod (xlon, 360.)
 
   dimsz = dimsizes (xlat)
-  ny = dimsz(0)   ;   ny is size of the input grid y dimension
-  nx = dimsz(1)   ;   nx is size of the input grid x dimension
+  ny = dimsz(0)
+  nx = dimsz(1)
 
   print ("nx, ny = "+nx+"  "+ny)
 
@@ -302,15 +302,14 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
   points_lat = new (50000, typeof(xlat))
   points_lon = new (50000, typeof(xlon))
  
-  do j = 0, (ny-1)                 ;  loop over the input grid
-    if ((xlat(j,i).ge.latmin) .and. (xlat(j,i).le.latmax) then
+  do j = 0, (ny-1)
+    do i = 0, (nx-1)
       flat = (xlat(j,i)-latmin) / dlat
-      do i = 0, (nx-1)               ;  loop over the input grid
-;  jj = round (flat,3)          ;  index of the point on our grid
-        flag = 0
-; if (jj.ge.0 .and. jj.le.(nlat-1)) then
-;       flon = (xlon(j,i)-lonmin) / dlon
-;       ii = round (flon,3)
+      jj = round (flat,3)
+      flag = 0
+      if (jj.ge.0 .and. jj.le.(nlat-1)) then
+        flon = (xlon(j,i)-lonmin) / dlon
+        ii = round (flon,3)
         if (ii.ge.0 .and. ii.le.(nlon-1)) then
           flag = 1
           numpoints = numpoints + 1
