@@ -105,17 +105,23 @@ end do
 
 ; Max and min lat/lon
 
-lonmin = lon(0) - (dlon / 2.)
-latmin = lat(0) - (dlat / 2.)
-lonmax = lon(nlon-1) + (dlon / 2.)
-latmax = lat(nlat-1) + (dlat / 2.)
+latlon = asciiread ("latlon.in", -1, "float")
+latmin = latlon(0)
+latmax = latlon(1)
+lonmin = latlon(2)
+lonmax = latlon(3)
+
+;lonmin = lon(0) - (dlon / 2.)
+;latmin = lat(0) - (dlat / 2.)
+;lonmax = lon(nlon-1) + (dlon / 2.)
+;latmax = lat(nlat-1) + (dlat / 2.)
 
 print ("dlat, dlon = "+dlat+"  "+dlon)
 print ("lonmin, lonmax = "+lonmin+"  "+lonmax)
 print ("latmin, latmax = "+latmin+"  "+latmax)
 
-print ("latitudes "+lat(0) + "  "+lat(nlat-1))
-print ("longitudes "+lon(0) + "  "+lon(nlon-1))
+;print ("latitudes "+lat(0) + "  "+lat(nlat-1))
+;print ("longitudes "+lon(0) + "  "+lon(nlon-1))
 
 ;   Arrays to hold output
 
@@ -205,40 +211,40 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
 ;  and compute frequency of exceedence.
 
 
-  do j = 0, (ny-1)
-    do i = 0, (nx-1)
-      flat = (xlat(j,i)-latmin) / dlat
-      jj = round (flat,3)
-      if (jj.ge.0 .and. jj.le.(nlat-1)) then
-        flon = (xlon(j,i)-lonmin) / dlon
-        ii = round (flon,3)
-        if (ii.ge.0 .and. ii.le.(nlon-1)) then
-          print ("j,i  "+j+"  "+i+"  jj,ii "+jj+"  "+ii+" lon, lat = "+xlon(j,i)+"  "+xlat(j,i))
-          pr = f1->pr(itstart:itend,j,i)
-          numt = dimsizes(pr)
-          print ("numt = "+numt)
-          nrecs(jj,ii) = nrecs(jj,ii) + numt
-          pr = pr * 86400.                        ;  convert precip to mm/day
-          do ith = 0, (nthresh-1)
-            numx = num (pr .gt. thresh(ith)) 
-            nxceed(ith,jj,ii) = nxceed(ith,jj,ii) + numx
-          end do
-          print ("numx, numt = "+numx+"  "+numt)
-        end if
-      end if
-    end do
-  end do
+;  do j = 0, (ny-1)
+;    do i = 0, (nx-1)
+;      flat = (xlat(j,i)-latmin) / dlat
+;      jj = round (flat,3)
+;      if (jj.ge.0 .and. jj.le.(nlat-1)) then
+;        flon = (xlon(j,i)-lonmin) / dlon
+;        ii = round (flon,3)
+;        if (ii.ge.0 .and. ii.le.(nlon-1)) then
+;          print ("j,i  "+j+"  "+i+"  jj,ii "+jj+"  "+ii+" lon, lat = "+xlon(j,i)+"  "+xlat(j,i))
+;          pr = f1->pr(itstart:itend,j,i)
+;          numt = dimsizes(pr)
+;          print ("numt = "+numt)
+;          nrecs(jj,ii) = nrecs(jj,ii) + numt
+;          pr = pr * 86400.                        ;  convert precip to mm/day
+;          do ith = 0, (nthresh-1)
+;            numx = num (pr .gt. thresh(ith)) 
+;            nxceed(ith,jj,ii) = nxceed(ith,jj,ii) + numx
+;          end do
+;          print ("numx, numt = "+numx+"  "+numt)
+;        end if
+;      end if
+;    end do
+;  end do
 
-  f2->nrecs = nrecs
-  f2->nxceed = nxceed
+; f2->nrecs = nrecs
+; f2->nxceed = nxceed
 
-  freq = int2flt (nxceed)
+; freq = int2flt (nxceed)
 
-  do ith = 0, (nthresh-1)
-    freq(ith,:,:) = int2flt (nxceed(ith,:,:)) / int2flt (nrecs)
-  end do
+; do ith = 0, (nthresh-1)
+;   freq(ith,:,:) = int2flt (nxceed(ith,:,:)) / int2flt (nrecs)
+; end do
 
-  f2->freq   = freq
+; f2->freq   = freq
 
   end if    ; end if for computing exceedences
 
@@ -261,7 +267,9 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
 ;npts = sum(npdf)
 ;zpts = sum(zpdf)
 
-  if (do_pdf_region) then
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+if (do_pdf_region) then
 
 ; Set up bins for pdf
 
@@ -277,14 +285,20 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
 
   num_bin = new (nbins, double)
   num_bin!0 = "nbins"
+  num_bin@long_name = "number of events in each intensity bin"
   num_bin = 0
 
   bin_center = new (nbins, double)
   bin_center!0 = "nbins"
+  bin_center@long_name = "center value of intensity bin"
+  bin_center@units = "mm d-1"
   bin_center = 0
 
   bin_bounds = new (nbins+1, double)
   bin_bounds!0 = "nbounds"
+  bin_bounds@long_name = "bounds of intensity bin"
+  bin_bounds@comment = "lowest bound should equal trace"
+  bin_bounds@units = "mm d-1"
   bin_bounds = 0
 
   printVarSummary (num_bin)
@@ -379,6 +393,10 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
   lon_points!0 = "numpoints"
   lat_points@units = xlat@units
   lon_points@units = xlon@units
+  lat_points@long_name = "latitude of data points used"
+  lon_points@long_name = "longitude of data points used"
+  lat_points@units = "degrees north"
+  lon_points@units = "degrees east"
 
   bin_center!0 = "nbins"
 
@@ -398,14 +416,33 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
   numpr_tot!0 = "ncl_scalar"
   numtrace_tot!0 = "ncl_scalar"
 
-  numt_tot@long_name = "total number of data points"
-  numpr_tot@long_name = "number of data points with precipitation trace or above"
-  numtrace_tot@long_name = "number of data points with precipitation less than trace"
+  latmin!0 = "ncl_scalar"
+  latmax!0 = "ncl_scalar"
+  lonmin!0 = "ncl_scalar"
+  lonmax!0 = "ncl_scalar"
+
+  latmin@long_name = "south limit of latitude"
+  latmax@long_name = "north limit of latitude"
+  lonmin@long_name = "west limit of longitude"
+  lonmax@long_name = "east limit of longitude"
+
+  latmin@units = "degrees north"
+  latmax@units = "degrees north"
+  lonmin@units = "degrees east"
+  lonmax@units = "degrees east"
+
+  numt_tot@long_name = "total number of data values"
+  numpr_tot@long_name = "number of values with precipitation trace or above"
+  numtrace_tot@long_name = "number of values with precipitation less than trace"
 
   f2->trace = trace
   f2->numt = numt_tot                  
   f2->numpr = numpr_tot                 ;  accumulate number of non-trace values
   f2->numtrace = numtrace_tot
+  f2->latmin = latmin
+  f2->latmax = latmax
+  f2->lonmin = lonmin
+  f2->lonmax = lonmax
 
   copy_VarAtts(f1, f2)             ;   copy global attributes from input to output
  
