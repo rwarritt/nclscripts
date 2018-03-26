@@ -222,8 +222,6 @@ if (do_pdf_region) then
 ;  npoints = number of locations (stations) used
 
 
-
-
   do i = 0, (nfiles-1)
     flag = 0
     fin = files(i)
