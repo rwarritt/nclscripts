@@ -316,6 +316,15 @@ if (do_pdf_region) then
   points_lat = new (50000, typeof(xlat))
   points_lon = new (50000, typeof(xlon))
 
+;  npdf = number of events in each bin for this grid point
+;  numpdf = total number of events summed over all bins for this grid point
+;  num_bin = number of events in each bin accumulated over all grid points
+;  num_bin_tot = total number of events summed over all bins and grid points
+;  nmax_tot = total number of non-missing (i.e., non-trace) values, accumulated over all grid points
+;  nuse_tot = total number of values used (i.e., lying within the bin limits), accumulated over all grid points
+;  nlo_tot = total number of values below the lowest bin, accumulated over all grid points (should always be zero)
+;  nhi_tot = total number of values above the highest bin, accumulated over all grid points 
+
   do j = 0, (ny-1)
     do i = 0, (nx-1)
       flag = 0
@@ -330,28 +339,28 @@ if (do_pdf_region) then
           pr@_FillValue = -999.
           pr = pr * 86400.                             ;  convert precip to mm/day
           pr = where (pr.gt.trace, pr, pr@_FillValue)  ;  ignore values below cutoff (trace) by setting them to missing
-          numpr = num (.not.ismissing(pr))             ;  number of non-trace values
-          numtrace = num (ismissing(pr))               ;  number of trace values
-          numt = dimsizes(pr)                          ;  total number of values 
-          numt_tot = numt_tot + numt                   ;  accumulate total number
-          numpr_tot = numpr_tot + numpr                ;  accumulate number of non-trace values
+          numpr = num (.not.ismissing(pr))             ;  number of non-trace values at this grid point
+          numtrace = num (ismissing(pr))               ;  number of trace values at this grid point
+          numt = dimsizes(pr)                          ;  number of values at this grid point, both trace and non-trace (equals number of time steps)
+          numpr_tot = numpr_tot + numpr                ;  accumulate number of non-trace values over all grid points
           numtrace_tot = numtrace_tot + numtrace       ;  accumulate number of trace values
+          numt_tot = numt_tot + numt                   ;  accumulate total number of values over all grid points
 ;         nrecs(jj,ii) = nrecs(jj,ii) + numpr
-          pr_pdf = pdfx(pr, 100, opt)                  ;  compute pdf here, note pdfx computes pdf as percent
+          pr_pdf = pdfx(pr, 100, opt)                  ;  compute pdf here -- note pdfx computes pdf as percent
           npdf = pr_pdf@nMax * pr_pdf / 100            ;  convert percent to counts
           nmax_tot = nmax_tot + pr_pdf@nMax            ;  nMax is how many non-missing values were input
           nuse_tot = nuse_tot + pr_pdf@nUse            ;  nUse is how many values were used in the pdf, i.e., within the bin ranges
           nehi = 0
           nelo = 0
           if (isatt(pr_pdf,"nLoOut")) then
-            nelo = pr_pdf@nLoOut
+            nelo = pr_pdf@nLoOut                 ;  number of values at this grid point that are below the lowest bin
           end if
-          nlo_tot = nlo_tot + nelo            ;  number of values below lowest bin
+          nlo_tot = nlo_tot + nelo               ;  accumulate number of values below lowest bin
           if (isatt(pr_pdf,"nHiOut")) then
             nehi = pr_pdf@nHiOut
           end if
-          nhi_tot = nhi_tot + nehi            ;  number of values above highest bin
-          num_bin = num_bin + npdf                     ;  add counts to accumulator bins
+          nhi_tot = nhi_tot + nehi               ;  number of values at this grid point that are above highest bin
+          num_bin = num_bin + npdf               ;  add counts to accumulator bins
           pr_max = max (pr)
           num_bin_tot = sum (num_bin)
           numpdf = sum (npdf)
