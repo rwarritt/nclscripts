@@ -51,6 +51,7 @@ start_year = 1981
 end_year = 2005
 select_season = "warm"
 
+
 ; Get the list of stations
 
 nfiles = numAsciiRow ("coop/allstations.txt")         ;  How many files?
@@ -141,6 +142,17 @@ f2 = addfile ("binned.nc", "c")
 ; Turn the time into an understandable calendar date
 
   cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calendar (:,1)
+
+  tind = ind (cal(:,0).ge.start_year .and. cal(:,0).le.end_year .and. cal(:,1).ge.4 .and. cal(:,1).le.9) 
+  nti = dimsizes (tind)
+
+  tcal = cal(tind,:)
+
+  do j = 0, (nti-1)
+    print (tcal(j,0)+" "+tcal(j,1)+" "+tcal(j,2))
+  end do
+
+  exit
 
 ; itstart is the first record in the starting year.
 ; Report the year corresponding to this record.
@@ -242,8 +254,11 @@ if (do_pdf_region) then
     print (fin+"  is in target region")
     time = f1->time
     nt = dimsizes (time)
-    calendar = cd_calendar (time, -5)
+    cale = cd_calendar (time, -5)
     pr_in = f1->pr 
+; use only warm season
+;   if (select_season .eq. "warm") then
+;     prind = ind (where ((cale(:,0).ge.start_year .and. cale(:,0).le.end_year .and. cale(:,1).ge.4 .and. cale(:,1).le.9)
 ; check data continuity
     nmiss = num(ismissing(pr_in(itstart:itend)))
     print (calendar(itstart,0)+" "+calendar(itstart,1)+" "+calendar(itstart,2))
