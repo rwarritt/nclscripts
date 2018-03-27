@@ -68,9 +68,9 @@ trace = 0.1
 trace@long_name = "precip_lower_limit"
 trace@units = "mm d-1"
 
-; Set minimum fraction of non-missing data for a station to be included
+; Set maximum fraction of missing data for a station to be included
 
-min_data_frac = 0.9              
+maxmiss = 0.1              
 
 do_exceed = False
 do_pdf_region = True
@@ -135,8 +135,8 @@ f2 = addfile ("binned.nc", "c")
 ; Find first and last records to be used
 
   fin = files(0)
-  f1 = addfile (fin, "r")
-  timein = f1->time
+  f0 = addfile (fin, "r")
+  timein = f0->time
   nt = dimsizes (timein)
 
 ; Turn the time into an understandable calendar date
@@ -148,11 +148,10 @@ f2 = addfile ("binned.nc", "c")
 
   tcal = cal(tind,:)
 
-  do j = 0, (nti-1)
-    print (tcal(j,0)+" "+tcal(j,1)+" "+tcal(j,2))
-  end do
+; do j = 0, (nti-1)
+;   print (tcal(j,0)+" "+tcal(j,1)+" "+tcal(j,2))
+; end do
 
-  exit
 
 ; itstart is the first record in the starting year.
 ; Report the year corresponding to this record.
@@ -220,8 +219,8 @@ f2 = addfile ("binned.nc", "c")
 
 if (do_pdf_region) then
 
-; points_lat = new (50000, typeof(xlat))
-; points_lon = new (50000, typeof(xlon))
+  points_lat = new (50000, typeof(f0->lat))
+  points_lon = new (50000, typeof(f0->lon))
 
 ;  npdf = number of events in each bin for this grid point
 ;  numpdf = total number of events summed over all bins for this grid point
@@ -257,27 +256,28 @@ if (do_pdf_region) then
     cale = cd_calendar (time, -5)
     pr_in = f1->pr 
 ; use only warm season
-;   if (select_season .eq. "warm") then
-;     prind = ind (where ((cale(:,0).ge.start_year .and. cale(:,0).le.end_year .and. cale(:,1).ge.4 .and. cale(:,1).le.9)
+    if (select_season .eq. "warm") then
+      prind = ind (cale(:,0).ge.start_year .and. cale(:,0).le.end_year .and. cale(:,1).ge.4 .and. cale(:,1).le.9) 
+      pr = pr_in(prind)
+    end if
 ; check data continuity
-    nmiss = num(ismissing(pr_in(itstart:itend)))
-    print (calendar(itstart,0)+" "+calendar(itstart,1)+" "+calendar(itstart,2))
-    print (calendar(itend,0)+" "+calendar(itend,1)+" "+calendar(itend,2))
-    print ("number of missing values = "+nmiss)
-    ntot = itend - itstart +1
+    nmiss = num(ismissing(pr))
+    ntot = dimsizes (pr)
+    print ("nmiss, ntot "+nmiss+" "+ntot)
     missfrac = nmiss / int2flt(ntot)
     print ("fraction of missing values = "+missfrac)
-
-    exit
-
+; bail out if fraction of missing data is too large
+    if (missfrac .gt. maxmiss) then
+      print ("too many missing values, nmiss, ntot, nfrac = "+nmiss+" "+ntot+" "+nfrac)
+      continue
+    end if
+;
+; at this point we have a station within our target region that has the required amount of good data
+;
     flag = 1 
     numpoints = numpoints + 1                    ;  increment number of locations in our sample
     points_lat(numpoints-1) = (/ lat /)
     points_lon(numpoints-1) = (/ lon /)
-    pr_in = f1->pr(itstart:itend)
-    pr = pr_in
-; check if this station has the minimum specified fraction of good data
-    
     pr = pr * 86400.                             ;  convert precip to mm/day
     pr = where (pr.gt.trace, pr, pr@_FillValue)  ;  ignore values below cutoff (trace) by setting them to missing
     numpr = num (.not.ismissing(pr))             ;  number of non-trace values at this grid point
@@ -286,7 +286,6 @@ if (do_pdf_region) then
     numpr_tot = numpr_tot + numpr                ;  accumulate number of non-trace values over all grid points
     numtrace_tot = numtrace_tot + numtrace       ;  accumulate number of trace values
     numt_tot = numt_tot + numt                   ;  accumulate total number of values over all grid points
-;   nrecs(jj,ii) = nrecs(jj,ii) + numpr
     pr_pdf = pdfx(pr, 100, opt)                  ;  compute pdf here -- note pdfx computes pdf as percent
     npdf = pr_pdf@nMax * pr_pdf / 100            ;  convert percent to counts
     nmax_tot = nmax_tot + pr_pdf@nMax            ;  nMax is how many non-missing values were input
@@ -297,24 +296,30 @@ if (do_pdf_region) then
       nelo = pr_pdf@nLoOut                 ;  number of values at this grid point that are below the lowest bin
     end if
     nlo_tot = nlo_tot + nelo               ;  accumulate number of values below lowest bin
-          if (isatt(pr_pdf,"nHiOut")) then
-            nehi = pr_pdf@nHiOut
-          end if
-          nhi_tot = nhi_tot + nehi               ;  number of values at this grid point that are above highest bin
-          num_bin = num_bin + npdf               ;  add counts to accumulator bins
-          pr_max = max (pr)
-          num_bin_tot = sum (num_bin)
-          numpdf = sum (npdf)
-          print ("numpdf, num_bin_tot, nmax_tot, nuse_tot, nlo_tot, nhi_tot "+numpdf+"  "+num_bin_tot+"  "+nmax_tot+"  "+nuse_tot+"  "+nlo_tot+"  "+nhi_tot+"  "+pr_max+" "+nehi)
-          if (numpoints .eq. 1) then
-            bin_center = pr_pdf@bin_center
-            bin_bounds = pr_pdf@bin_bounds
-          end if
-          if (flag .eq. 1) then
-            delete (pr_pdf)       ;     for good measure
-          end if
+    if (isatt(pr_pdf,"nHiOut")) then
+      nehi = pr_pdf@nHiOut
+    end if
+    nhi_tot = nhi_tot + nehi               ;  number of values at this grid point that are above highest bin
+    num_bin = num_bin + npdf               ;  add counts to accumulator bins
+    pr_max = max (pr)
+    num_bin_tot = sum (num_bin)
+    numpdf = sum (npdf)
+    print ("numpdf, num_bin_tot, nmax_tot, nuse_tot, nlo_tot, nhi_tot "+numpdf+"  "+num_bin_tot+"  "+nmax_tot+"  "+nuse_tot+"  "+nlo_tot+"  "+nhi_tot+"  "+pr_max+" "+nehi)
+    print (npdf)
+    print (pr_pdf)
+
+    exit
+
+
+    if (numpoints .eq. 1) then
+      bin_center = pr_pdf@bin_center
+      bin_bounds = pr_pdf@bin_bounds
+    end if
+    if (flag .eq. 1) then
+      delete (pr_pdf)       ;     for good measure
+    end if
     delete (f1)
-  end do             ; end lat loop
+  end do       ; end loop over stations
 
   end if
 
