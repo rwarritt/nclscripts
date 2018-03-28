@@ -23,7 +23,16 @@ begin
 ; Open data file
 ;************************************************
 
-  f1 = addfile("bin_input.nc","r")
+
+;  Read the list of file names
+
+  nfiles = numAsciiRow ("scatter_in.list")         ;  How many files?
+  files = asciiread ("scatter_in.list", nfiles, "string")
+
+  print (files)
+
+  ifile = 0
+  f1 = addfile(files(ifile),"r")
 
   printVarSummary (f1)
 
