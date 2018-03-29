@@ -28,62 +28,70 @@ begin
 
   nfiles = numAsciiRow ("scatter_in.list")         ;  How many files?
   files = asciiread ("scatter_in.list", nfiles, "string")
-
   print (files)
 
-  ifile = 0
-  f1 = addfile(files(ifile),"r")
+;  Set up arrays to store data
 
-  printVarSummary (f1)
+  yy = new ((/nfiles, 500/), "double")
+  yy@_FillValue = -999.
+  xx = new ((/nfiles, 500/), "double")
 
-  tin = f1->num_bin
-  nbb = dimsizes (tin)
-  xin = f1->bin_bounds
-  xx = xin(1:nbb)
-
-;  Find intensity bin corresponding to upper limit
+;  Intensity corresponding to highest bin to be plotted
 
   prmax = 200.
-  npr = closest_val (prmax, xx)
-  nb = npr+1
 
-  t = tin(0:npr)
-  x = xx(0:npr)
+  do ifile = 0, (nfiles-1)
+    ifile = 0
+    f1 = addfile(files(ifile),"r")   ; open file for input
 
-  printVarSummary (t)
-  printVarSummary (x)
+    printVarSummary (f1)
 
+; Note bin_bounds includes both upper and lower limits, so it is dimensioned 1 more than the counts.
 
-  nfiles = 1
+    counts_in = f1->num_bin        ;  read in the counts
 
+    printVarSummary (counts_in)
 
-  tn = new ((/nfiles, nb/), "double")
-  xn = new ((/nfiles, nb/), "double")
-  fn = tn
+    nbb = dimsizes (counts_in)
+    bin_in = f1->bin_bounds(1:nbb)  ;  Read in the bin upper limits. Since bin_bounds should be dimensioned nbb+1, nbb already accounts for the usual n-1
 
-  printVarSummary (tn)
-  printVarSummary (xn)
+;    Find intensity bin corresponding to upper limit
 
+    npr = closest_val (prmax, bin_in)    
+    nb = npr+1
 
-  j = 0
+; Select data up to prmax 
 
-  tn(j,:) = t
-  xn(j,:) = x(0:nb-1)
+    print ("nb, nbb, npr "+nb+" "+nbb+" "+npr)
+    y = counts_in(0:nb-1)           ;  select a subset of the input data
+    x = bin_in(0:nb-1)
+
+    print (npr)
+    printVarSummary (y)
+    printVarSummary (x)
+
+;    stop here 27 Mar
+
+;   printVarSummary (tn)
+;   printVarSummary (xn)
+
+    printVarSummary (y)
+    printVarSummary (yy)
+
+    yy(ifile,0:npr) = y
+    xx(ifile,0:npr) = x
+    print ("max bin  "+xx(ifile,nb-1))
 
 ; xn(j,:) = x(0:nb-1)
 
-  printVarSummary (tn)
-  printVarSummary (xn)
-
-  print ("max bin  "+xn(j,nb-1))
-
-  data2 = new ((/2,nb/), "double")
-  data2@_FillValue = -999.
-
-  ktot = f1->numpr
-
+; printVarSummary (tn)
+; printVarSummary (xn)
 
 ;  Convert counts to frequencies
+
+    ktot = f1->numpr
+    yy(ifile,:) = yy(ifile,:) / ktot
+    yy(ifile,:) = where (yy(ifile,:).gt.0.,yy(ifile,:),yy@_FillValue) 
 
 ; do j = 0, (nfiles-1)
 ;   ktot = sum(tn(j,:))
@@ -96,15 +104,11 @@ begin
 ;   print ("Total number of measurable precip events = "+nmeasurable)
 ;   print ("Fraction of measurable precip events     = "+fmeasurable)
 
-    fn(j,:) = tn(j,:)
-    fn(j,:) = fn(j,:) / ktot
-    data2(j,:) = fn(j,:)
-    data2(j,:) = where (data2(j,:).gt.0.,data2(j,:),data2@_FillValue) 
 ; end do
 
+  end do
 
-
-  print (fn(j,:))
+; print (fn(j,:))
 
 
 
@@ -146,10 +150,10 @@ begin
   res@gsnFrame               = False
 
 
-  printVarSummary (data2)
+  printVarSummary (yy)
   printVarSummary (x)
 
-  xy  = gsn_csm_xy (wks,x,data2,res)                    ; create plot
+  xy  = gsn_csm_xy (wks,x,yy,res)                    ; create plot
   draw (xy)
 
   frame (wks)
