@@ -1,15 +1,9 @@
 ; ***********************************************
 ;
-; Scatter plot with semilog axes and multiple data sets.
+; Plot preciptation intensity spectra (pdf)
 ;
 ;
 ; Based on scatter_1.ncl example code
-;
-; Concepts illustrated:
-;   - Drawing a scatter plot
-;   - Changing the markers in an XY plot
-;   - Changing the marker color in an XY plot
-;   - Changing the marker size in an XY plot
 ;
 ; ***********************************************
 ;
@@ -26,13 +20,14 @@ begin
 
 ;  Read the list of file names
 
-  nfiles = numAsciiRow ("scatter_in.list")         ;  How many files?
-  files = asciiread ("scatter_in.list", nfiles, "string")
+  nrows = numAsciiRow ("scatter_in.list")         ;  How many rows in the input file?
+  nfiles = nrows - 1                              ;  last line is title
+  files = asciiread ("scatter_in.list", nrows, "string")
   print (files)
 
   rcmname = new ((/100/), "string")
 
-;  Set up arrays to store data, dimensioned (number of files/plots) by (max possible number of bins)
+;  Set up arrays to store data, dimensioned (number of files=plots) by (max possible number of bins)
 
   yy = new ((/nfiles, 500/), "double")
   xx = new ((/nfiles, 500/), "double")
@@ -43,6 +38,7 @@ begin
   prmax = 200.
 
 ;  Loop over the input files
+
   do ifile = 0, (nfiles-1)
     f1 = addfile(files(ifile),"r")   ; open file for input
     rcmname(ifile) = f1@runname
@@ -50,39 +46,30 @@ begin
     counts_in = f1->num_bin          ;  read in the counts
     printVarSummary (counts_in)
     nbb = dimsizes (counts_in)
-
 ; Note bin_bounds includes both upper and lower limits, so it is dimensioned 1 more than the counts, i.e. (nbb+1).
-
-    bin_in = f1->bin_bounds(1:nbb)  ;  Read in the bin upper limits. Since bin_bounds should be dimensioned nbb+1, nbb already accounts for the usual n-1
-;  Find intensity bin corresponding to upper limit
-    npr = closest_val (prmax, bin_in)
-;  Account for zero based indexing to get number of bins below upper limit
-    nb = npr+1                      
+    bin_up = f1->bin_bounds(1:nbb)       ;  Read in the bin upper limits. Since bin_bounds should be dimensioned nbb+1, nbb already accounts for the usual n-1
+    npr = closest_val (prmax, bin_up)    ;  Find intensity bin corresponding to upper limit
+    nb = npr+1                           ;  Account for zero based indexing to get number of bins below upper limit
     print ("nb, nbb, npr "+nb+" "+nbb+" "+npr)
-; Select data up to prmax 
-    y = counts_in(0:nb-1)           ;  select a subset of the input data
-    x = bin_in(0:nb-1)
-
-    printVarSummary (y)
-    printVarSummary (x)
-    printVarSummary (y)
-    printVarSummary (yy)
-
-; Put the x (intensity) and y (count) values into the master rrays
-
+    y = counts_in(0:nb-1)                ; Select data up to prmax 
+    x = bin_up(0:nb-1)                   ; x axis is upper limit of this bin
+;   printVarSummary (y)
+;   printVarSummary (x)
+;   printVarSummary (y)
+;   printVarSummary (yy)
+; Put the x (intensity) and y (count) values into the master arrays
     yy(ifile,0:nb-1) = y
     xx(ifile,0:nb-1) = x
     print ("max bin  "+xx(ifile,nb-1))
 
 ; xn(j,:) = x(0:nb-1)
-
 ; printVarSummary (tn)
 ; printVarSummary (xn)
 
 ;  Convert counts to frequencies
-
     ktot = f1->numpr
     yy(ifile,0:nb-1) = yy(ifile,0:nb-1) / ktot
+
     yy(ifile,0:nb-1) = where (yy(ifile,0:nb-1).gt.0.,yy(ifile,0:nb-1),yy@_FillValue)   ; avoid plotting log of zero
 
 ; do j = 0, (nfiles-1)
@@ -108,8 +95,8 @@ begin
 ;************************************************
 ; plotting parameters
 ;************************************************
-; wks   = gsn_open_wks ("ncgm","scatter_hist")           ; send graphics to PNG file
-  wks   = gsn_open_wks ("png","scatter_hist")           ; send graphics to PNG file
+; wks   = gsn_open_wks ("ncgm","scatter_rcp85_44")           ; send graphics to NCAR metafile
+  wks   = gsn_open_wks ("png","scatter_rcp85_44")           ; send graphics to PNG file
 
 ;  Set marker types. See https://www.ncl.ucar.edu/Document/Graphics/Images/markers.png
 ;  Common types:  0 = asterisk,    1 = small filled circle,     2 = plus, 3 = asterisk, 4 = open circle, 5 = cross,
@@ -118,12 +105,13 @@ begin
 
   marker_types = (/16, 6,  6, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16/)
   marker_colors = (/"black", "blue", "red", "blue", "red", "red", "green", "black", "blue", "red", "green", "black", "blue", "red", "green", "black" /)
-  marker_sizes = (/ 0.005, 0.005, 0.005, 0.005, 0.005, 0.005, 0.004, 0.004, 0.002, 0.002, 0.004, 0.004, 0.002, 0.002, 0.004, 0.004 /)
+  marker_sizes = (/ 0.005, 0.006, 0.006, 0.005, 0.005, 0.005, 0.004, 0.004, 0.002, 0.002, 0.004, 0.004, 0.002, 0.002, 0.004, 0.004 /)
 
   res                   = True                     ; plot mods desired
   res@gsnMaximize       = True                     ; maximize plot
 
-  res@tiMainString      = "Historical climate"        ; add title
+  res@tiMainString      = files(nrows-1)       ; add title
+; res@tiMainString      = "ERAI driven"        ; add title
   res@tiMainFontHeightF = 0.025
 
   res@tiYAxisString    = "Frequency"               ; y-axis label      
@@ -182,7 +170,7 @@ begin
   yylog = 1.
 
   do j = 0, (nfiles-1)
-    xxl(j) = 110.
+    xxl(j) = 100.
     yylog = yylog * 0.33
     yyl(j) = yylog
     res_marker@gsMarkerIndex = marker_types(j)
