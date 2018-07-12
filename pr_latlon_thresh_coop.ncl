@@ -1,3 +1,4 @@
+
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
 load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
@@ -47,8 +48,14 @@ print ("latmin, latmax, lonmin, lonmax "+latmin+" "+latmax+" "+lonmin+" "+lonmax
 
 ; Start and end year, and season
 
+; for ERAI runs
+;start_year = 1990
+;end_year = 2009
+
+; for GCM runs
 start_year = 1981
 end_year = 2005
+
 select_season = "warm"
 
 
@@ -88,14 +95,14 @@ end if
 
 ; Open file for output
 
-f2 = addfile ("binned.nc", "c")
+f2 = addfile ("binned_coop.nc", "c")
 
 ; Set up bins for pdf
 
   opt = True
   opt@bin_spacing = 2.
   opt@bin_min =  0.
-  opt@bin_max =  200.
+  opt@bin_max =  500.
 
   xbins = (opt@bin_max - opt@bin_min) / opt@bin_spacing
   print ("xbins = "+xbins)
@@ -268,7 +275,7 @@ if (do_pdf_region) then
     print ("fraction of missing values = "+missfrac)
 ; bail out if fraction of missing data is too large
     if (missfrac .gt. maxmiss) then
-      print ("too many missing values, nmiss, ntot, nfrac = "+nmiss+" "+ntot+" "+nfrac)
+      print ("too many missing values, nmiss, ntot, nfrac = "+nmiss+" "+ntot+" "+missfrac)
       continue
     end if
 ;
@@ -282,11 +289,12 @@ if (do_pdf_region) then
     pr = where (pr.gt.trace, pr, pr@_FillValue)  ;  ignore values below cutoff (trace) by setting them to missing
     numpr = num (.not.ismissing(pr))             ;  number of non-trace values at this grid point
     numtrace = num (ismissing(pr))               ;  number of trace values at this grid point
+    numtrace = numtrace - nmiss                  ;  adjust for the number of obs that really are missing
     numt = dimsizes(pr)                          ;  number of values at this grid point, both trace and non-trace (equals number of time steps)
     numpr_tot = numpr_tot + numpr                ;  accumulate number of non-trace values over all grid points
     numtrace_tot = numtrace_tot + numtrace       ;  accumulate number of trace values
     numt_tot = numt_tot + numt                   ;  accumulate total number of values over all grid points
-    pr_pdf = pdfx(pr, 100, opt)                  ;  compute pdf here -- note pdfx computes pdf as percent
+    pr_pdf = pdfx(pr, nbins, opt)                 ;  compute pdf here -- note pdfx computes pdf as percent
     npdf = pr_pdf@nMax * pr_pdf / 100            ;  convert percent to counts
     nmax_tot = nmax_tot + pr_pdf@nMax            ;  nMax is how many non-missing values were input
     nuse_tot = nuse_tot + pr_pdf@nUse            ;  nUse is how many values were used in the pdf, i.e., within the bin ranges
@@ -305,23 +313,29 @@ if (do_pdf_region) then
     num_bin_tot = sum (num_bin)
     numpdf = sum (npdf)
     print ("numpdf, num_bin_tot, nmax_tot, nuse_tot, nlo_tot, nhi_tot "+numpdf+"  "+num_bin_tot+"  "+nmax_tot+"  "+nuse_tot+"  "+nlo_tot+"  "+nhi_tot+"  "+pr_max+" "+nehi)
-    print (npdf)
-    print (pr_pdf)
-
-    exit
-
+;   print (pr_pdf)
+;   print (npdf)
+;   print (num_bin)
 
     if (numpoints .eq. 1) then
       bin_center = pr_pdf@bin_center
       bin_bounds = pr_pdf@bin_bounds
     end if
     if (flag .eq. 1) then
+      delete (pr)
       delete (pr_pdf)       ;     for good measure
     end if
     delete (f1)
+
+;   if (numpoints .gt. 3) then
+;     break                  ;  bail out of the loop
+;   end if
+
+;   exit
+
   end do       ; end loop over stations
 
-  end if
+end if         ;  end if for do_pdf_region
 
   print ("numpoints  "+numpoints)
 
@@ -332,7 +346,7 @@ if (do_pdf_region) then
   end do
 
   print ("num_bin_tot, nmax_tot, nuse_tot, nlo_tot, nhi_tot "+num_bin_tot+"  "+nmax_tot+"  "+nuse_tot+"  "+nlo_tot+"  "+nhi_tot)
-  print ("numt_tot, numpr_tot, nuntrace_tot  "+numt_tot+"  "+numpr_tot+"  "+numtrace_tot)
+  print ("numt_tot, numpr_tot, numtrace_tot  "+numt_tot+"  "+numpr_tot+"  "+numtrace_tot)
 
   printVarSummary (points_lat)
   printVarSummary (points_lon)
@@ -344,8 +358,6 @@ if (do_pdf_region) then
   lon_points = points_lon(0:numpoints-1)
   lat_points!0 = "numpoints"
   lon_points!0 = "numpoints"
-  lat_points@units = xlat@units
-  lon_points@units = xlon@units
   lat_points@long_name = "latitude of data points used"
   lon_points@long_name = "longitude of data points used"
   lat_points@units = "degrees north"
@@ -397,7 +409,13 @@ if (do_pdf_region) then
   f2->lonmin = lonmin
   f2->lonmax = lonmax
 
-  copy_VarAtts(f1, f2)             ;   copy global attributes from input to output
+; copy_VarAtts(f1, f2)             ;   copy global attributes from input to output
+
+;  more global attributes
+  globalAtt = True
+  globalAtt@start_year = start_year
+  globalAtt@end_year = end_year
+  fileattdef (f2, globalAtt)
  
   exit 
 

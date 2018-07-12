@@ -36,27 +36,55 @@ begin
 ;  *******************************************************************
 ;
 
-start_year = 1991
-end_year = 2010
+; Max and min lat/lon
+
+latlon = asciiread ("latlon.in", -1, "float")
+latmin = latlon(0)
+latmax = latlon(1)
+lonmin = latlon(2)
+lonmax = latlon(3)
+
+; Ensure lons are degreese east
+
+print ("latmin, latmax, lonmin, lonmax "+latmin+" "+latmax+" "+lonmin+" "+lonmax)
+lonmin = mod ((lonmin+360.), 360.)
+lonmax = mod ((lonmax+360.), 360.)
+
+; check if lat/lon are flipped
+
+if (lonmin .gt. lonmax) then
+  ltmp = lonmin
+  lonmin = lonmax
+  lonmax = ltmp
+end if
+
+print ("latmin, latmax, lonmin, lonmax "+latmin+" "+latmax+" "+lonmin+" "+lonmax)
+
+; Start and end year, and season
+
+;  for 'rcp85' simulations
+ start_year = 2075
+ end_year = 2099
+
+;  for 'hist' simulations
+;start_year = 1981
+;end_year = 2005
+
+;  for 'eval' simulations (ERA-Interim driven)
+ start_year = 1990
+ end_year = 2009
+
 select_season = "warm"
 
+; Set minimum value for measurable precip (mm/day). Below this is considered trace.
 
-do_exceed = False
-do_pdf_region = True
-
-nlat = 3                        ; number of latitudes for the output grid
-nlon = 2                        ; number of longitudes for the output grid
-dlat = 2.                        ; distance between latitudes, degrees
-dlon = 2.                        ; distance between longitudes, degrees
-lat1 = 30.                       ; southernmost latitude
-lon1 = 250.                      ; westernmost longitude (degrees east)
-
-trace = 0.1                    ; minimum value for measurable precip (mm/day). Below this is considered trace.
+trace = 0.254           
 trace@long_name = "precip_lower_limit"
 trace@units = "mm d-1"
 
 
-min_data_frac = 0.8              ; minimum fraction of non-missing data for a station to be included
+do_exceed = False
+do_pdf_region = True
 
 thresh = (/ 1., 25.4, 25.4 * 2 /)                ; precipitation thresholds
 nthresh = dimsizes (thresh)
@@ -79,63 +107,22 @@ if (select_season.ne."warm" .and.  select_season.ne."cool" .and.  select_season.
   print ("STOP - Unknown season "+select_season)
 end if
 
-; Construct the lat-lon grid.
-; lat and lon are the center latitude and longitude of each grid square
-
-halfdlat = 0.5 * dlat
-halfdlon = 0.5 * dlon
-
-lat = new (nlat, float)
-lon = new (nlon, float)
-lat!0 = "y"
-lon!0 = "x"
-lat@units = "degrees_north"
-lon@units = "degrees_east"
-
-;printVarSummary (lat)
-;printVarSummary (lon)
-
-do ilat = 0, (nlat-1)
-  lat(ilat) = lat1 + ilat * dlat
-end do
-
-do ilon = 0, (nlon-1)
-  lon(ilon) = lon1 + ilon * dlon
-end do
-
-; Max and min lat/lon
-
-latlon = asciiread ("latlon.in", -1, "float")
-latmin = latlon(0)
-latmax = latlon(1)
-lonmin = latlon(2)
-lonmax = latlon(3)
-
-;lonmin = lon(0) - (dlon / 2.)
-;latmin = lat(0) - (dlat / 2.)
-;lonmax = lon(nlon-1) + (dlon / 2.)
-;latmax = lat(nlat-1) + (dlat / 2.)
-
-print ("dlat, dlon = "+dlat+"  "+dlon)
 print ("lonmin, lonmax = "+lonmin+"  "+lonmax)
 print ("latmin, latmax = "+latmin+"  "+latmax)
 
-;print ("latitudes "+lat(0) + "  "+lat(nlat-1))
-;print ("longitudes "+lon(0) + "  "+lon(nlon-1))
-
 ;   Arrays to hold output
 
-nxceed = new ( (/nthresh,nlat,nlon/), "integer")
-nxceed!0 = "nthresh"
-nxceed!1 = "y"
-nxceed!2 = "x"
-nxceed = 0
-
-printVarSummary (nxceed)
-
-nrecs = nxceed(0,:,:)
-
-freq = int2flt (nxceed)
+;nxceed = new ( (/nthresh,nlat,nlon/), "integer")
+;nxceed!0 = "nthresh"
+;nxceed!1 = "y"
+;nxceed!2 = "x"
+;nxceed = 0
+;
+;printVarSummary (nxceed)
+;
+;nrecs = nxceed(0,:,:)
+;
+;freq = int2flt (nxceed)
 
 ;   Open file for input
 
@@ -146,9 +133,8 @@ printVarSummary (prt)
 
 ;   Create output file and define dimensions
 
-f2 = addfile ("binned.nc", "c")
+f2 = addfile ("binned_model.nc", "c")
 
-ndstr = 20
 ;dimNames = (/"lat", "lon"  /)     ; dimension names
 ;dimSizes = (/ nlat,  nlon  /)     ; dimension sizes
 ;dimUnlim = (/ False, False /)     ; unlimited dimension
@@ -168,10 +154,13 @@ cal = cd_calendar (timein, -5)  ; note year = calendar(:,0) and month is calenda
 ; Report the year corresponding to this record.
 
   itstart = get1Dindex (cal(:,0), start_year)
-  print ("Starting record: istart, year = "+itstart+"   "+cal(itstart,0))
+
+  print ("itstart "+itstart)
+
+  print ("Starting record: itstart, year = "+itstart+"   "+cal(itstart,0))
 
   if (itstart .gt. 0) then
-    print ("Year for record (istart-1) = "+cal(itstart-1,0))
+    print ("Year for record (itstart-1) = "+cal(itstart-1,0))
   end if
 
 ; Find the ending record
@@ -276,7 +265,7 @@ if (do_pdf_region) then
   opt = True
   opt@bin_spacing = 2.
   opt@bin_min =  0.
-  opt@bin_max =  200.
+  opt@bin_max =  500.
 
   xbins = (opt@bin_max - opt@bin_min) / opt@bin_spacing
   print ("xbins = "+xbins)
@@ -328,56 +317,89 @@ if (do_pdf_region) then
   do j = 0, (ny-1)
     do i = 0, (nx-1)
       flag = 0
-      if ((xlat(j,i).ge.latmin) .and. (xlat(j,i).le.latmax)) then
-        if ((xlon(j,i).ge.lonmin) .and. (xlon(j,i).le.lonmax)) then
-          flag = 1
-          numpoints = numpoints + 1
-          points_lat(numpoints-1) = (/ xlat(j,i) /)
-          points_lon(numpoints-1) = (/ xlon(j,i) /)
-          pr_in = f1->pr(itstart:itend,j,i)
-          pr = pr_in
-          pr@_FillValue = -999.
-          pr = pr * 86400.                             ;  convert precip to mm/day
-          pr = where (pr.gt.trace, pr, pr@_FillValue)  ;  ignore values below cutoff (trace) by setting them to missing
-          numpr = num (.not.ismissing(pr))             ;  number of non-trace values at this grid point
-          numtrace = num (ismissing(pr))               ;  number of trace values at this grid point
-          numt = dimsizes(pr)                          ;  number of values at this grid point, both trace and non-trace (equals number of time steps)
-          numpr_tot = numpr_tot + numpr                ;  accumulate number of non-trace values over all grid points
-          numtrace_tot = numtrace_tot + numtrace       ;  accumulate number of trace values
-          numt_tot = numt_tot + numt                   ;  accumulate total number of values over all grid points
-;         nrecs(jj,ii) = nrecs(jj,ii) + numpr
-          pr_pdf = pdfx(pr, 100, opt)                  ;  compute pdf here -- note pdfx computes pdf as percent
-          npdf = pr_pdf@nMax * pr_pdf / 100            ;  convert percent to counts
-          nmax_tot = nmax_tot + pr_pdf@nMax            ;  nMax is how many non-missing values were input
-          nuse_tot = nuse_tot + pr_pdf@nUse            ;  nUse is how many values were used in the pdf, i.e., within the bin ranges
-          nehi = 0
-          nelo = 0
-          if (isatt(pr_pdf,"nLoOut")) then
-            nelo = pr_pdf@nLoOut                 ;  number of values at this grid point that are below the lowest bin
-          end if
-          nlo_tot = nlo_tot + nelo               ;  accumulate number of values below lowest bin
-          if (isatt(pr_pdf,"nHiOut")) then
-            nehi = pr_pdf@nHiOut
-          end if
-          nhi_tot = nhi_tot + nehi               ;  number of values at this grid point that are above highest bin
-          num_bin = num_bin + npdf               ;  add counts to accumulator bins
-          pr_max = max (pr)
-          num_bin_tot = sum (num_bin)
-          numpdf = sum (npdf)
-          print ("numpdf, num_bin_tot, nmax_tot, nuse_tot, nlo_tot, nhi_tot "+numpdf+"  "+num_bin_tot+"  "+nmax_tot+"  "+nuse_tot+"  "+nlo_tot+"  "+nhi_tot+"  "+pr_max+" "+nehi)
-          if (numpoints .eq. 1) then
-            bin_center = pr_pdf@bin_center
-            bin_bounds = pr_pdf@bin_bounds
-          end if
-          if (flag .eq. 1) then
-            delete (pr_pdf)       ;     for good measure
-          end if
-        end if       ; end if for lon
-      end if         ; end if for lat
+      lat = xlat(j,i)
+      lon = xlon(j,i)
+      lon = mod (lon + 360., 360.)          ;    convert to degrees east
+; check if lat is within our region
+      if ((lat.lt.latmin) .or. (lat.gt.latmax)) then
+;       print (fin+"  not in target region")
+        continue
+      end if
+; check if lon is within our region
+      if ((lon.lt.lonmin) .or. (lon.gt.lonmax)) then
+;       print (fin+"  not in target region "+lat+"  "+lon)
+        continue
+      end if
+      time = f1->time
+      nt = dimsizes (time)
+      cale = cd_calendar (time, -5)
+      pr_in = f1->pr(:,j,i)
+; use only warm season
+      if (select_season .eq. "warm") then
+        prind = ind (cale(:,0).ge.start_year .and. cale(:,0).le.end_year .and. cale(:,1).ge.4 .and. cale(:,1).le.9)
+        pr = pr_in(prind)
+        pr@_FillValue = -999.
+      end if
+;
+; at this point we have a grid point within our target region
+;
+      flag = 1
+      numpoints = numpoints + 1
+      points_lat(numpoints-1) = (/ lat /)
+      points_lon(numpoints-1) = (/ lon /)
+      pr = pr * 86400.                             ;  convert precip to mm/day
+      pr = where (pr.gt.trace, pr, pr@_FillValue)  ;  ignore values below cutoff (trace) by setting them to missing
+      numpr = num (.not.ismissing(pr))             ;  number of non-trace values at this grid point
+      numtrace = num (ismissing(pr))               ;  number of trace values at this grid point
+      numt = dimsizes(pr)                          ;  number of values at this grid point, both trace and non-trace (equals number of time steps)
+      numpr_tot = numpr_tot + numpr                ;  accumulate number of non-trace values over all grid points
+      numtrace_tot = numtrace_tot + numtrace       ;  accumulate number of trace values
+      numt_tot = numt_tot + numt                   ;  accumulate total number of values over all grid points
+      pr_pdf = pdfx(pr, nbins, opt)                 ;  compute pdf here -- note pdfx computes pdf as percent
+      npdf = pr_pdf@nMax * pr_pdf / 100            ;  convert percent to counts
+      nmax_tot = nmax_tot + pr_pdf@nMax            ;  nMax is how many non-missing values were input
+      nuse_tot = nuse_tot + pr_pdf@nUse            ;  nUse is how many values were used in the pdf, i.e., within the bin ranges
+      nehi = 0
+      nelo = 0
+      if (isatt(pr_pdf,"nLoOut")) then
+        nelo = pr_pdf@nLoOut                 ;  number of values at this grid point that are below the lowest bin
+      end if
+      nlo_tot = nlo_tot + nelo               ;  accumulate number of values below lowest bin
+      if (isatt(pr_pdf,"nHiOut")) then
+        nehi = pr_pdf@nHiOut
+      end if
+      nhi_tot = nhi_tot + nehi               ;  number of values at this grid point that are above highest bin
+      num_bin = num_bin + npdf               ;  add counts to accumulator bins
+      pr_max = max (pr)
+      num_bin_tot = sum (num_bin)
+      numpdf = sum (npdf)
+      print ("numpdf, num_bin_tot, nmax_tot, nuse_tot, nlo_tot, nhi_tot, lat, lon "+numpdf+"  "+num_bin_tot+"  "+nmax_tot+"  "+nuse_tot+"  "+nlo_tot+"  "+nhi_tot+"  "+pr_max+" "+nehi+"  "+lat+"  "+lon)
+
+      if (numpoints .eq. 1) then
+        bin_center = pr_pdf@bin_center
+        bin_bounds = pr_pdf@bin_bounds
+      end if
+      if (flag .eq. 1) then
+        delete (pr)
+        delete (pr_pdf)       ;     for good measure
+      end if
+
+;   if (numpoints .gt. 3) then
+;     break                  ;  bail out of the lon loop
+;   end if
+
     end do           ; end lon loop
+
+;   if (numpoints .gt. 3) then
+;     break                  ;  bail out of the lat loop
+;   end if
   end do             ; end lat loop
 
-  end if
+end if
+
+
+;    Done.  Prepare to write output.
+
 
   print ("numpoints  "+numpoints)
 
@@ -417,9 +439,9 @@ if (do_pdf_region) then
   f2->bin_center = bin_center
   f2->bin_bounds = bin_bounds
 
-  print (trace)
+; print (trace)
   trace!0 = "ncl_scalar"
-  print (trace)
+; print (trace)
 
   numt_tot!0 = "ncl_scalar"
   numpr_tot!0 = "ncl_scalar"
@@ -453,8 +475,17 @@ if (do_pdf_region) then
   f2->lonmin = lonmin
   f2->lonmax = lonmax
 
+  print ("Preparing to copy global attributes")
   copy_VarAtts(f1, f2)             ;   copy global attributes from input to output
+  print ("Copied global attributes")
+
+;  more global attributes
  
+  globalAtt = True
+  globalAtt@start_year = start_year
+  globalAtt@end_year = end_year
+  fileattdef (f2, globalAtt)
+
   exit 
 
 ;         num_bins(:,jj,ii) = num_bins(:,jj,ii) + npdf
