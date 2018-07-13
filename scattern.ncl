@@ -155,6 +155,7 @@ begin
   res@trYMinF           = 1.e-7      ;  min value of Y axis
 
 
+
   res@vpWidthF      = 0.8                          ;  change the aspect ratio of the plot by scaling the height and width
   res@vpHeightF     = 0.5
 
