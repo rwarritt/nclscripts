@@ -81,7 +81,6 @@ begin
   pr_anncyc = clmMonTLL (pr)
   ev_anncyc = clmMonTLL (ev)
 
-
 ;  Compute monthly anomalies
 
   pr_anom = rmMonAnnCycTLL (pr)
@@ -102,12 +101,16 @@ begin
 
 ;  Report number of near-zero values
 
-  print ("data with pp < 0.01 mm2/day "+num(pprime2.lt.0.01))
-  print ("data with pp > 0.01 mm2/day "+num(pprime2.gt.0.01))
-  print ("data with pe < 0.01 mm2/day "+num(pprime_eprime.lt.0.01))
-  print ("data with pe > 0.01 mm2/day "+num(pprime_eprime.gt.0.01))
+  pr_min = 0.254                ;  precip rate threshold (mm/day), below which is trace
+  ev_min = 0.1                  ;  evapotranspiration threshold
+  pp_min = pr_min * pr_min
+  pe_min = pr_min * ev_min
 
-  exit
+  print ("data with pp < "+pp_min+"  mm2/day "+num(pprime2.lt.pp_min))
+  print ("data with pp > "+pp_min+"  mm2/day "+num(pprime2.gt.pp_min))
+  print ("data with pe < "+pe_min+"   mm2/day "+num(pprime_eprime.lt.pe_min))
+  print ("data with pe > "+pe_min+"   mm2/day "+num(pprime_eprime.gt.pe_min))
+
 
 ;  Lazy way to create arrays for the gammas and covariances. 
 ;  Note "gamma" is an NCL function so we
@@ -127,10 +130,13 @@ begin
   nyears = nt / 12
   print ("nyears "+nyears)
  
+
 ;  Initialize the counters
 
   sum_pe = 0.
   sum_pp = 0.
+
+  print ("Computing covariances")
 
   do m = 0, 11
     nyr = 0
@@ -148,10 +154,11 @@ begin
   print ("sum_pp < 0.01 "+num(sum_pp.lt.0.01))
   print ("sum_pp > 0.01 "+num(sum_pp.ge.0.01))
 
-;  Put a floor on the precip rate
 
-  pp_floor = 0.01 * nyears
-  pr_min = 0.0001
+;  Avoid analyzing dry areas by putting a floor on the monthly mean precip rate 
+
+; pp_floor = 0.01 * nyears
+; pr_min = 0.0001
 
 ; sum_pp = where (sum_pp.lt.0.01, sum_pp@_FillValue, sum_pp) 
 ; printVarSummary (pr_anncyc)
@@ -159,10 +166,13 @@ begin
 
   sum_pp = where (pr_anncyc.lt.pr_min, sum_pp@_FillValue, sum_pp) 
 
-  print ("sum_pp set to missing "+num(ismissing(sum_pp)))
+  print ("sum_pp set to missing at "+num(ismissing(sum_pp))+" points")
 
-  print ("sum_pp < 0.01 "+num(sum_pp.lt.0.01))
-  print ("sum_pp > 0.01 "+num(sum_pp.ge.0.01))
+; print ("sum_pp < 0.01 "+num(sum_pp.lt.0.01))
+; print ("sum_pp > 0.01 "+num(sum_pp.ge.0.01))
+
+
+;  Compute the index
 
   zgamma = sum_pe / sum_pp
 
