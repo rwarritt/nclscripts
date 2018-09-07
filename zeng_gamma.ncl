@@ -6,30 +6,47 @@ begin
 ;  of Zeng et al. (2010).
 ;
 ;  Model output needed:
-;   monthly mean precipitation
-;   monthly mean evapotranspiration
-;   monthly mean soil moisture (from BATS)
+;   monthly mean precipitation, linked to file name infile_pr.nc
+;   monthly mean evapotranspiration, linked to file name infile_ev.nc
 
 ;************************************************
+
+;   Start and end years for computations
+
+  year1 = 2076
+  yearn = 2095
 
 ; Open netCDF files for input:
 
   f_pr  = addfile("infile_pr.nc","r")     ;  f_pr = monthly precipitation
   f_ev  = addfile("infile_ev.nc","r")     ;  f_ev = monthly evapotranspiration
-  f_mr  = addfile("infile_mr.nc","r")     ;  f_mr = monthly soil moisture (from BATS)
 
+;   Find out about dimensions.  Ensure that both variables have the same dimensions.
 
-;   Find out about dimensions
+  time_pr = f_pr->time
+  time_ev = f_ev->time
 
-  lat = f_pr->xlat
-  lon = f_pr->xlon
-  time = f_pr->time
+  nt_pr = dimsizes (time_pr)
+  nt_ev = dimsizes (time_ev)
+
+  if ( dimsizes(time_pr).eq.dimsizes(time_ev) .and. time_pr(0).eq.time_ev(0) .and. time_pr(nt_pr-1).eq.time_ev(nt_ev-1) )  then
+    print ("Dimensions match")
+    time = time_pr
+  else
+    print ("Dimensions do not match ")
+    printVarSummary (time_pr)
+    printVarSummary (time_ev)
+  end if
 
   experiment = f_pr@experiment
 
   print (experiment)
 
+  lat = f_pr->xlat
+  lon = f_pr->xlon
+
   dimsxy = dimsizes (lat)
+
   ny = dimsxy(0)
   nx = dimsxy(1)
   nt = dimsizes (time)
@@ -40,10 +57,6 @@ begin
 
   cal = cd_calendar (time, -5)
 
-;   Start and end years for computations
-
-  year1 = 1990
-  yearn = 2009
 
 ;   Find starting record
 
@@ -62,8 +75,6 @@ begin
 
   pr = f_pr->pr(jj:jjn,:,:)
   ev = f_ev->evspsbl(jj:jjn,:,:)
-  mrs = f_mr->mrso(jj:jjn,0,:,:)     ;  surface soil
-  mrr = f_mr->mrso(jj:jjn,1,:,:)     ;  root zone
 
 ;  Convert precipitation and evapotranspiration to mm/day for ease of interpretation.
 
@@ -138,11 +149,13 @@ begin
 
   print ("Computing covariances")
 
+; Compute the covariances for each month
+
   do m = 0, 11
     nyr = 0
     j1 = m
     j2 = j1 + (nyears-1) * 12
-    do j = j1, j2, 12
+    do j = j1, j2, 12                 ; sum over years
       sum_pe(m,:,:) = sum_pe(m,:,:) + pprime_eprime(j,:,:)
       sum_pp(m,:,:) = sum_pp(m,:,:) + pprime2(j,:,:)
       nyr = nyr + 1
